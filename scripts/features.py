@@ -1,8 +1,8 @@
 # This script takes cleaned appraisal data and adds engineered features to improve
 # the model's ability to identify good comparable properties.
-#
-# Steps (in order):
-#
+
+
+
 # 1. Imports & Constants
 #    - json: load and dump JSON
 #    - dateutil.parser: flexible date parsing
@@ -10,56 +10,6 @@
 #    - INPUT_FILE / OUTPUT_FILE file paths
 #    - CANONICAL_TYPES: standardized property type list
 #    - manual_type_map: mapping of variations to canonical types
-#
-# 2. sold_recently(appraisal)
-#    - Adds binary flag (1/0) if property sold within 90 days of subject's effective date
-#    - Uses dateutil.parser for flexible date parsing
-#
-# 3. map_to_property_type(raw)
-#    - Normalizes property type strings to canonical types
-#    - First tries exact match in manual_type_map
-#    - Falls back to fuzzy matching if no exact match
-#
-# 4. same_property_type(appraisal)
-#    - Adds binary flag (1/0) if comp/property matches subject's type
-#    - Uses map_to_property_type for normalization
-#
-# 5. effective_age_diff(appraisal)
-#    - Computes age difference between subject and comps/properties
-#    - Uses effective_age for subject and age for others
-#
-# 6. subject_age_diff(appraisal)
-#    - Similar to effective_age_diff but uses subject_age
-#
-# 7. lot_size_diff(appraisal)
-#    - Computes lot size difference in square feet
-#
-# 8. gla_diff(appraisal)
-#    - Computes gross living area difference in square feet
-#
-# 9. room_diff(appraisal)
-#    - Computes total room count difference
-#
-# 10. bedroom_diff(appraisal)
-#    - Computes bedroom count difference
-#
-# 11. bath_score_diff(appraisal)
-#    - Computes bathroom score difference (full + 0.5*half)
-#
-# 12. full_bath_diff(appraisal)
-#    - Computes full bathroom count difference
-#
-# 13. half_bath_diff(appraisal)
-#    - Computes half bathroom count difference
-#
-# 14. add_new_features()
-#    - Main function that:
-#      • Loads cleaned data
-#      • Applies all feature engineering functions
-#      • Saves enhanced dataset
-#
-# Output: "feature_engineered_appraisals_dataset.json" containing original data
-#         plus new engineered features for modeling
 
 import json
 from dateutil import parser
@@ -73,6 +23,10 @@ CANONICAL_TYPES = [
     "High Rise Apartment", "Low Rise Apartment", "Duplex", "Triplex", "Fourplex"
 ]
 
+# manual_type_map: maps raw property-type strings to our standard list (or None)
+#  - Exact matches first (e.g., "single family residence" → "Detached")
+#  - Explicit exclusions for non-residential values ("vacant land", "") → None
+# this lets us handle common variations/edge-cases before doing any fuzzy matching
 manual_type_map = {
     "rural resid": "Detached",
     "rural residential": "Detached",
@@ -106,22 +60,26 @@ manual_type_map = {
 }
 
 
+
+# 2. sold_recently(appraisal)
+#    - Adds binary flag (1/0) if property sold within 90 days of subject's effective date
+#    - Uses dateutil.parser for flexible date parsing
+
 def sold_recently(appraisal):
     subject = appraisal['subject']
     subject_effective_data = parser.parse(subject['effective_date'])
 
     for comp in appraisal['comps']:
         sale_date = parser.parse(comp.get('sale_date'))
-        days_ago_sold = (subject_effective_data-sale_date).days
+        days_ago_sold = (subject_effective_data - sale_date).days
         if days_ago_sold <= 90:
             comp['sold_recently'] = 1
         else:
             comp['sold_recently'] = 0
-        
 
     for property in appraisal['properties']:
         close_date = parser.parse(property.get('close_date'))
-        days_ago_sold = (subject_effective_data-close_date).days
+        days_ago_sold = (subject_effective_data - close_date).days
         if days_ago_sold <= 90:
             property['sold_recently'] = 1
         else:
@@ -129,20 +87,35 @@ def sold_recently(appraisal):
 
     return appraisal
 
+
+
+# 3. map_to_property_type(raw)
+#    - Normalizes property type strings to canonical types
+#    - First tries exact match in manual_type_map
+#    - Falls back to fuzzy matching if no exact match
+
 def map_to_property_type(raw):
     if not raw:
         return None
 
     val = str(raw).lower().strip().replace(",", "").replace("-", " ")
 
-    # 1. Manual check first
+    # I. Manual check first
     if val in manual_type_map:
         return manual_type_map[val]
 
-    # 2. Fuzzy fallback to catch close things like "semi detached"
+    # II. Fuzzy fallback:
+    # - Compare `val` against each entry in CANONICAL_TYPES using fuzzywuzzy.process.extractOne
+    # - extractOne returns (best_match, score) where score is 0–100
+    # - If score ≥ 80 (close match), return best_match; otherwise return None
     match, score = process.extractOne(val, CANONICAL_TYPES, scorer=process.fuzz.partial_ratio)
     return match if score >= 80 else None
 
+
+
+# 4. same_property_type(appraisal)
+#    - Adds binary flag (1/0) if comp/property matches subject's type
+#    - Uses map_to_property_type for normalization
 
 def same_property_type(appraisal):
     subject = appraisal['subject']
@@ -164,6 +137,12 @@ def same_property_type(appraisal):
 
     return appraisal
 
+
+
+# 5. effective_age_diff(appraisal)
+#    - Computes age difference between subject and comps/properties
+#    - Uses effective_age for subject and age for others
+
 def effective_age_diff(appraisal):
     subject = appraisal['subject']
     subject_effective_age = subject.get("effective_age")
@@ -174,18 +153,23 @@ def effective_age_diff(appraisal):
     for comp in appraisal['comps']:
         comp_age = comp.get('age')
         if comp_age:
-            comp['effective_age_diff'] = subject_effective_age-comp_age
+            comp['effective_age_diff'] = subject_effective_age - comp_age
         else:
             comp['effective_age_diff'] = None
 
     for property in appraisal['properties']:
         property_age = property.get('age')
         if property_age:
-            property['effective_age_diff'] = subject_effective_age-property_age
+            property['effective_age_diff'] = subject_effective_age - property_age
         else:
             property['effective_age_diff'] = None
 
     return appraisal
+
+
+
+# 6. subject_age_diff(appraisal)
+#    - Similar to effective_age_diff but uses subject_age
 
 def subject_age_diff(appraisal):
     subject = appraisal['subject']
@@ -197,18 +181,23 @@ def subject_age_diff(appraisal):
     for comp in appraisal['comps']:
         comp_age = comp.get('age')
         if comp_age:
-            comp['subject_age_diff'] = subject_age-comp_age
+            comp['subject_age_diff'] = subject_age - comp_age
         else:
             comp['subject_age_diff'] = None
 
     for property in appraisal['properties']:
         property_age = property.get('age')
         if property_age:
-            property['subject_age_diff'] = subject_age-property_age
+            property['subject_age_diff'] = subject_age - property_age
         else:
             property['subject_age_diff'] = None
 
     return appraisal
+
+
+
+# 7. lot_size_diff(appraisal)
+#    - Computes lot size difference in square feet
 
 def lot_size_diff(appraisal):
     subject = appraisal['subject']
@@ -229,6 +218,11 @@ def lot_size_diff(appraisal):
             property['lot_size_diff_sf'] = None
 
     return appraisal
+
+
+
+# 8. gla_diff(appraisal)
+#    - Computes gross living area difference in square feet
 
 def gla_diff(appraisal):
     subject = appraisal['subject']
@@ -253,6 +247,11 @@ def gla_diff(appraisal):
 
     return appraisal
 
+
+
+# 9. room_diff(appraisal)
+#    - Computes total room count difference
+
 def room_diff(appraisal):
     subject = appraisal['subject']
     subject_rooms = subject.get('room_count')
@@ -275,6 +274,11 @@ def room_diff(appraisal):
             property['room_count_diff'] = None
     
     return appraisal
+
+
+
+# 10. bedroom_diff(appraisal)
+#    - Computes bedroom count difference
 
 def bedroom_diff(appraisal):
     subject = appraisal['subject']
@@ -299,6 +303,11 @@ def bedroom_diff(appraisal):
     
     return appraisal
 
+
+
+# 11. bath_score_diff(appraisal)
+#    - Computes bathroom score difference (full + 0.5*half)
+
 def bath_score_diff(appraisal):
     subject = appraisal['subject']
     subject_bath_score = subject.get('bath_score')
@@ -321,6 +330,11 @@ def bath_score_diff(appraisal):
             property['bath_score_diff'] = None
     
     return appraisal
+
+
+
+# 12. full_bath_diff(appraisal)
+#    - Computes full bathroom count difference
 
 def full_bath_diff(appraisal):
     subject = appraisal['subject']
@@ -345,6 +359,11 @@ def full_bath_diff(appraisal):
     
     return appraisal
 
+
+
+# 13. half_bath_diff(appraisal)
+#    - Computes half bathroom count difference
+
 def half_bath_diff(appraisal):
     subject = appraisal['subject']
     subject_halfs = subject.get('num_half_baths')
@@ -368,6 +387,14 @@ def half_bath_diff(appraisal):
     
     return appraisal
 
+
+
+# 14. add_new_features()
+#    - Main function that:
+#      • Loads cleaned data
+#      • Applies all feature engineering functions
+#      • Saves enhanced dataset
+
 def add_new_features():
     with open(INPUT_FILE, "r") as f:
             data = json.load(f)
@@ -390,13 +417,38 @@ def add_new_features():
 
         feature_engineered.append(appraisal)
 
-
     with open(OUTPUT_FILE, "w") as f:
         json.dump({"appraisals": feature_engineered}, f, indent=2)
 
     print(f"Saved cleaned JSON to {OUTPUT_FILE}")
     
 
-if __name__ == "__main__":
-    add_new_features()    
 
+if __name__ == "__main__":
+    add_new_features()   
+
+
+
+# Output: "feature_engineered_appraisals_dataset.json" containing original data plus new engineered features for modeling 
+
+
+
+# =============================================================================
+# ENGINEERED FEATURES ADDED IN feature_engineered_appraisals_dataset.json:
+#
+# sold_recently        – 1 if comp/property sold ≤90 days before subject date, else 0
+# same_property_type   – 1 if comp/property type matches subject’s type, else 0
+#
+# effective_age_diff   – subject.effective_age minus comp/property age
+# subject_age_diff     – subject.subject_age minus comp/property age
+#
+# lot_size_diff_sf     – subject.lot_size_sf minus comp/property lot_size_sf (sqft)
+# gla_diff             – subject.gla minus comp/property gla (sqft)
+#
+# room_count_diff      – subject.room_count minus comp/property room_count
+# bedrooms_diff        – subject.num_beds minus comp/property bed_count
+#
+# bath_score_diff      – subject.bath_score minus comp/property bath_score
+# full_baths_diff      – subject.num_full_baths minus comp/property num_full_baths
+# half_baths_diff      – subject.num_half_baths minus comp/property num_half_baths
+# =============================================================================
