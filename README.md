@@ -266,25 +266,6 @@ neg = [(f, v) for f, v in shap_items if v < 0]
    pip install -r requirements.txt
    ```
 
-### Environment Setup
-
-1. Create a `.env` file in the project root:
-   ```bash
-   touch .env  # On macOS/Linux
-   # OR
-   type nul > .env  # On Windows
-   ```
-
-2. Add your OpenAI API key to the `.env` file:
-   ```
-   OPENAI_API_KEY=your_api_key_here
-   ```
-
-3. Verify the setup:
-   ```bash
-   python -c "from dotenv import load_dotenv; load_dotenv(); import os; print('API Key loaded:', bool(os.getenv('OPENAI_API_KEY')))"
-   ```
-
 ### Running the Pipeline
 
 1. Ensure you have the raw data file in `data/raw/appraisals_dataset.json`
