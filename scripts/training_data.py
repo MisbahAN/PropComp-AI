@@ -1,19 +1,36 @@
 # This script converts the feature-engineered JSON data into a flat CSV format
 # suitable for machine learning, creating positive and negative examples for
 # training a ranking model.
-#
-# Steps (in order):
-#
+
+
+
 # 1. Imports & Constants
 #    - json: load JSON data
 #    - pandas: data manipulation and CSV output
 #    - os: file existence checks
 #    - INPUT_FILE / OUTPUT_FILE file paths
-#
+
+import json
+import pandas as pd
+import os
+
+INPUT_FILE = "../data/engineered/feature_engineered_appraisals_dataset.json"
+OUTPUT_FILE = "../data/training/training_data.csv"
+
+
+
 # 2. safe_abs(val)
 #    - Helper function to safely compute absolute value
 #    - Returns None if value is invalid
-#
+
+def safe_abs(val):
+    try:
+        return abs(val)
+    except:
+        return None
+
+
+
 # 3. build_training_data_from_cleaned(cleaned_file)
 #    - Main function that:
 #      • Loads feature-engineered JSON
@@ -23,32 +40,6 @@
 #      • Computes absolute differences for all numeric features
 #      • Handles duplicate addresses and missing values
 #      • Returns pandas DataFrame
-#
-# 4. Script entry point
-#    - Verifies input file exists
-#    - Builds training data
-#    - Saves to CSV
-#
-# Output: "training_data.csv" containing:
-#         - orderID: groups properties by appraisal
-#         - candidate_address: property being evaluated
-#         - is_comp: 1 if good comp, 0 if not
-#         - subject_address: reference property
-#         - Various feature differences and their absolute values
-#         - same_property_type and sold_recently flags
-
-import json
-import pandas as pd
-import os
-
-INPUT_FILE = "../data/engineered/feature_engineered_appraisals_dataset.json"
-OUTPUT_FILE = "../data/training/training_data.csv"
-
-def safe_abs(val):
-    try:
-        return abs(val)
-    except:
-        return None
 
 def build_training_data_from_cleaned(cleaned_file):
     with open(cleaned_file, "r") as f:
@@ -163,6 +154,13 @@ def build_training_data_from_cleaned(cleaned_file):
     df = pd.DataFrame(rows)
     return df
 
+
+
+# 4. Script entry point
+#    - Verifies input file exists
+#    - Builds training data
+#    - Saves to CSV
+
 if __name__ == "__main__":
     if not os.path.exists(INPUT_FILE):
         raise FileNotFoundError(f" Input file not found: {INPUT_FILE}")
@@ -170,3 +168,51 @@ if __name__ == "__main__":
     df = build_training_data_from_cleaned(INPUT_FILE)
     df.to_csv(OUTPUT_FILE, index=False)
     print(f"Saved training data to '{OUTPUT_FILE}' with shape: {df.shape}")
+
+
+
+# Output: "training_data.csv" containing:
+#         - orderID: groups properties by appraisal
+#         - candidate_address: property being evaluated
+#         - is_comp: 1 if good comp, 0 if not
+#         - subject_address: reference property
+#         - Various feature differences and their absolute values
+#         - same_property_type and sold_recently flags
+
+
+
+# =============================================================================
+# Example row in training_data.csv:
+# {
+#   "orderID":            "12345",             # appraisal group ID
+#   "candidate_address":  "456 Elm St",        # this property’s address
+#   "is_comp":            1,                   # 1=appraiser chose it, 0=didn’t
+#   "subject_address":    "123 Main St",       # the reference (subject) property
+#
+#   # Raw differences (subject minus candidate):
+#   "bath_score_diff":    0.5,                 # e.g. 2.5−2.0
+#   "full_baths_diff":    1,                   # e.g. 3−2
+#   "half_baths_diff":    0,                   # e.g. 1−1
+#   "room_count_diff":    2,                   # e.g. 8−6
+#   "bedrooms_diff":      1,                   # e.g. 4−3
+#   "effective_age_diff": 5,                   # e.g. 20−15
+#   "subject_age_diff":   5,                   # e.g. 20−15
+#   "lot_size_sf_diff":   200.0,               # e.g. 5000−4800 sqft
+#   "gla_diff":           100,                 # e.g. 1500−1400 sqft
+#
+#   # Absolute values for distance metrics:
+#   "abs_bath_score_diff":    0.5,
+#   "abs_full_bath_diff":     1,
+#   "abs_half_bath_diff":     0,
+#   "abs_room_count_diff":    2,
+#   "abs_bedrooms_diff":      1,
+#   "abs_effective_age_diff": 5,
+#   "abs_subject_age_diff":   5,
+#   "abs_lot_size_sf_diff":   200.0,
+#   "abs_gla_diff":           100,
+#
+#   # Binary flags from feature_engineering:
+#   "same_property_type": 1,  # 1 if this is also a Townhouse/Detached/etc.
+#   "sold_recently":       1   # 1 if sold within 90 days of subject date
+# }
+# =============================================================================

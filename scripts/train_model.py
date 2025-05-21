@@ -1,55 +1,29 @@
 # This script trains an XGBoost ranking model to identify good comparable properties
 # using pairwise ranking objective. It evaluates the model's performance using
 # precision at different K values (1, 3, 5).
-#
-# Steps (in order):
-#
+
+
+
 # 1. Imports & Constants
 #    - pandas: data manipulation
 #    - xgboost: gradient boosting for ranking
 #    - sklearn: train-test split
 #    - numpy: numerical operations
-#
-# 2. Data Loading & Preparation
-#    - Loads training data CSV
-#    - Defines feature columns used for training
-#    - Creates label from is_comp field
-#
-# 3. Train-Test Split
-#    - Splits data 80/20 stratified by label
-#    - Sorts by orderID for group creation
-#
-# 4. Model Training
-#    - Creates XGBoost DMatrix with groups
-#    - Sets ranking parameters:
-#      • objective: rank:pairwise
-#      • eval_metric: ndcg
-#      • eta: 0.1 (learning rate)
-#      • max_depth: 6
-#    - Trains for 100 boosting rounds
-#
-# 5. Model Evaluation
-#    - evaluate_topk function:
-#      • Predicts scores for properties in group
-#      • Takes top K by score
-#      • Returns precision (correct/total)
-#    - Evaluates at K=1,3,5
-#
-# 6. Model Saving
-#    - Saves trained model to JSON file
-#
-# Output: "xgb_rank_model.json" containing the trained model
-#         Prints precision metrics for different K values
 
 import pandas as pd
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
 import numpy as np
 
-# Load dataset
+
+
+# 2. Data Loading & Preparation
+#    - Loads training data CSV
+#    - Defines feature columns used for training
+#    - Creates label from is_comp field
+
 df = pd.read_csv("../data/training/training_data.csv")
 
-# Define feature columns
 feature_cols = [
     'bath_score_diff', 'full_baths_diff', 'half_baths_diff',
     'room_count_diff', 'bedrooms_diff', 'effective_age_diff',
@@ -60,13 +34,28 @@ feature_cols = [
     'same_property_type', 'sold_recently'
 ]
 
-# Fill in label if not already present
 df['label'] = df['is_comp']
 
-# Train-test split
+
+
+# 3. Train-Test Split
+#    - Splits data 80/20 stratified by label
+#    - Sorts by orderID for group creation
+
 df_train, df_test = train_test_split(
     df, test_size=0.2, random_state=42, stratify=df['label']
 )
+
+
+
+# 4. Model Training
+#    - Creates XGBoost DMatrix with groups
+#    - Sets ranking parameters:
+#      • objective: rank:pairwise
+#      • eval_metric: ndcg
+#      • eta: 0.1 (learning rate)
+#      • max_depth: 6
+#    - Trains for 100 boosting rounds
 
 # Sort for group creation
 df_train = df_train.sort_values("orderID")
@@ -93,7 +82,15 @@ params = {
 
 model = xgb.train(params, dtrain, num_boost_round=100)
 
-# Evaluation
+
+
+# 5. Model Evaluation
+#    - evaluate_topk function:
+#      • Predicts scores for properties in group
+#      • Takes top K by score
+#      • Returns precision (correct/total)
+#    - Evaluates at K=1,3,5
+
 print("\nTop-K Evaluation by Appraisal:")
 
 def evaluate_topk(df_group, k=3):
@@ -110,6 +107,15 @@ for k in [1, 3, 5]:
     precision = results["correct"] / results["total"]
     print(f"Top-{k} Precision: {precision:.3f}")
 
-# Optional: Save the model
+
+
+# 6. Model Saving
+#    - Saves trained model to JSON file
+
 model.save_model("../models/xgb_rank_model.json")
 print("\nRanking model saved as xgb_rank_model.json")
+
+
+
+# Output: "xgb_rank_model.json" containing the trained model
+#         Prints precision metrics for different K values

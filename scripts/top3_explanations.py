@@ -1,9 +1,9 @@
 # This script generates explanations for the top 3 property recommendations using
 # SHAP values and GPT-3.5 to provide human-readable insights about why each
 # property was selected as a good comparable.
-#
-# Steps (in order):
-#
+
+
+
 # 1. Imports & Environment Setup
 #    - shap: model interpretability
 #    - xgboost: load trained model
@@ -12,41 +12,6 @@
 #    - openai: GPT API access
 #    - dotenv: environment variable loading
 #    - os: environment variable access
-#
-# 2. Model & Data Loading
-#    - Loads trained XGBoost model
-#    - Loads training data
-#    - Defines feature columns
-#
-# 3. GPT Explanation Generation
-#    - gpt_explanation function:
-#      • Takes model score and SHAP values
-#      • Formats positive/negative factors
-#      • Calls GPT-3.5 to generate explanation
-#      • Returns human-readable text
-#
-# 4. SHAP Analysis
-#    - Creates SHAP explainer for model
-#    - For each appraisal:
-#      • Predicts scores for all properties
-#      • Takes top 3 by score
-#      • Computes SHAP values for each
-#      • Identifies positive/negative factors
-#
-# 5. Results Generation
-#    - For each top 3 property:
-#      • Gets GPT explanation
-#      • Stores orderID, address, score, explanation
-#
-# 6. Output
-#    - Saves results to CSV
-#    - Prints first 10 explanations
-#
-# Output: "top3_gpt_explanations.csv" containing:
-#         - orderID: appraisal identifier
-#         - candidate_address: recommended property
-#         - score: model's ranking score
-#         - explanation: GPT-generated explanation
 
 import shap
 import xgboost as xgb
@@ -55,6 +20,13 @@ import numpy as np
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+
+
+
+# 2. Model & Data Loading
+#    - Loads trained XGBoost model
+#    - Loads training data
+#    - Defines feature columns
 
 # Load environment variables
 load_dotenv()
@@ -81,6 +53,15 @@ feature_cols = [
     'same_property_type', 'sold_recently'
 ]
 
+
+
+# 3. GPT Explanation Generation
+#    - gpt_explanation function:
+#      • Takes model score and SHAP values
+#      • Formats positive/negative factors
+#      • Calls GPT-3.5 to generate explanation
+#      • Returns human-readable text
+
 # GPT explanation function
 def gpt_explanation(score, pos_feats, neg_feats, candidate_address, subject_address):
     try:
@@ -104,7 +85,7 @@ def gpt_explanation(score, pos_feats, neg_feats, candidate_address, subject_addr
                         f"{', '.join([f'{f} ({v:.2f})' for f, v in pos_feats]) or 'None'}\n\n"
                         f"These features hurt its ranking:\n"
                         f"{', '.join([f'{f} ({v:.2f})' for f, v in neg_feats]) or 'None'}\n\n"
-                        f"Write a brief explanation (1–2 sentences) of whether this is a good comparable and why."
+                        f"Write an brief explanation (1–2 sentences) of whether this is a good comparable and why."
                     )
                 }
             ],
@@ -115,9 +96,15 @@ def gpt_explanation(score, pos_feats, neg_feats, candidate_address, subject_addr
     except Exception as e:
         return f"[Error getting GPT explanation: {e}]"
 
-    
-    
-    
+
+
+# 4. SHAP Analysis
+#    - Creates SHAP explainer for model
+#    - For each appraisal:
+#      • Predicts scores for all properties
+#      • Takes top 3 by score
+#      • Computes SHAP values for each
+#      • Identifies positive/negative factors
 
 # Ensure data types are float for SHAP compatibility
 df[feature_cols] = df[feature_cols].astype(float)
@@ -127,6 +114,13 @@ def model_predict(X_df):
     return model.predict(dmatrix)
 
 explainer = shap.Explainer(model_predict, df[feature_cols])
+
+
+
+# 5. Results Generation
+#    - For each top 3 property:
+#      • Gets GPT explanation
+#      • Stores orderID, address, score, explanation
 
 results = []
 for i, (order_id, group) in enumerate(df.groupby("orderID")):
@@ -157,7 +151,21 @@ for i, (order_id, group) in enumerate(df.groupby("orderID")):
             "explanation": explanation
         })
 
+
+
+# 6. Output
+#    - Saves results to CSV
+#    - Prints first 10 explanations
+
 # Save results
 top3_df = pd.DataFrame(results)
 top3_df.to_csv("../outputs/top3_gpt_explanations.csv", index=False)
 print(top3_df.head(10))
+
+
+
+# Output: "top3_gpt_explanations.csv" containing:
+#         - orderID: appraisal identifier
+#         - candidate_address: recommended property
+#         - score: model's ranking score
+#         - explanation: GPT-generated explanation
