@@ -236,21 +236,20 @@ neg = [(f, v) for f, v in shap_items if v < 0]
 
 ### Prerequisites
 
-1. Python 3.8 or higher
-2. OpenAI API key (for generating explanations)
-   - Sign up at [OpenAI Platform](https://platform.openai.com)
-   - Create an API key in your account settings
-   - Copy `.env.example` to `.env` and add your API key:
-     ```bash
-     cp .env.example .env
-     # Edit .env and add your OpenAI API key
-     ```
+1. Python 3.8 or higher  
+2. OpenAI API Key  
+   1. Sign up or log in at [OpenAI Platform](https://platform.openai.com).  
+   2. In your account settings, create a new API key.  
+   3. In your project root, create a file named `.env` with the following content:  
+      ```bash
+      OPENAI_API_KEY=your_api_key_here
+      ```
 
 ### Installation
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/Property-Recommendation-System.git
+   git clone https://github.com/MisbahAN/Property-Recommendation-System.git
    cd Property-Recommendation-System
    ```
 
