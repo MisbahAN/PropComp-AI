@@ -25,7 +25,6 @@ This system processes property appraisal data through several stages:
 ├── 📁 models/            # Trained ML models
 ├── 📁 scripts/           # Python processing scripts
 ├── 📁 outputs/           # Generated explanations
-├── 📁 notebooks/         # Optional analysis notebooks
 │
 ├── .gitignore
 ├── requirements.txt
@@ -34,11 +33,36 @@ This system processes property appraisal data through several stages:
 
 ## Scripts Overview
 
-- `clean_initial_data.py`: Standardizes property data (ages, sizes, rooms, etc.)
-- `features.py`: Adds engineered features (property type matching, time-based flags)
-- `training_data.py`: Converts data to ML format with positive/negative examples
-- `train_model.py`: Trains XGBoost ranking model
-- `top3_explanations.py`: Generates human-readable explanations using SHAP and GPT
+### Data Processing Pipeline
+
+1. `clean_initial_data.py` (375 lines)
+   - Standardizes property data
+   - Handles missing values
+   - Normalizes property features (ages, sizes, rooms)
+   - Outputs cleaned data to `data/cleaned/`
+
+2. `features.py` (403 lines)
+   - Adds engineered features
+   - Implements property type matching
+   - Creates time-based flags
+   - Outputs enhanced data to `data/engineered/`
+
+3. `training_data.py` (173 lines)
+   - Converts data to ML format
+   - Creates positive/negative examples
+   - Prepares data for model training
+   - Outputs to `data/training/`
+
+4. `train_model.py` (116 lines)
+   - Trains XGBoost ranking model
+   - Implements cross-validation
+   - Saves model to `models/`
+
+5. `top3_explanations.py` (164 lines)
+   - Generates human-readable explanations
+   - Uses SHAP for feature importance
+   - Integrates with GPT for natural language explanations
+   - Outputs to `outputs/`
 
 ## Installation
 
@@ -70,7 +94,16 @@ This system processes property appraisal data through several stages:
 
 - Python 3.8+
 - OpenAI API key (for explanations)
-- See `requirements.txt` for full dependency list
+- Dependencies (see requirements.txt):
+  - pandas >= 1.3.0
+  - xgboost >= 1.5.0
+  - scikit-learn >= 0.24.0
+  - numpy >= 1.19.0
+  - fuzzywuzzy >= 0.18.0
+  - python-Levenshtein >= 0.12.0
+  - shap >= 0.41.0
+  - openai >= 1.0.0
+  - python-dotenv >= 0.19.0
 
 ## Author
 

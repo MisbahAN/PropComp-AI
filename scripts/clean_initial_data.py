@@ -1,77 +1,13 @@
 # This script reads raw appraisal data from a JSON file, applies a series of
 # cleaning and normalization steps to key fields, and writes out a cleaned JSON.
-#
-# Steps (in order):
-#
+
+
+
 # 1. Imports & Constants
 #    - json: load and dump JSON
 #    - re: regular expressions for parsing
 #    - dateutil.parser: flexible date parsing
 #    - INPUT_FILE / OUTPUT_FILE file paths
-#
-# 2. parse_age(val, effective_date)
-#    - Normalizes age strings like "new", "built in 1990", "20 years old"
-#    - Returns age in years (int) or None
-#    - If “new” → 0; if numeric looks like a year → current_year – year; else returns number
-#
-# 3. clean_ages(appraisal)
-#    - Applies parse_age to:
-#        • Subject property’s subject_age & effective_age (using its effective_date)
-#        • Each comp’s age (using sale_date)
-#        • Each property’s age (using close_date)
-#
-# 4. parse_gla(val)
-#    - Extracts numeric GLA (gross living area) value
-#    - Converts “sqm” or “sq m” → square feet (×10.7639)
-#    - Rounds and returns integer sqft or None
-#
-# 5. clean_glas(appraisal)
-#    - Runs parse_gla on the subject, each comp, and each property
-#
-# 6. parse_lot_size(val)
-#    - Cleans lot size strings (e.g., “0.2 acres”, “600 sqm”, “20×30 / 600 sqft”)
-#    - Strips unit markers, handles acres → sqft (×43 560) and sqm → sqft (×10.7639)
-#    - Rounds and returns float sqft or None
-#
-# 7. clean_lot_sizes(appraisal)
-#    - Applies parse_lot_size to subject.lot_size_sf, each comp.lot_size, and
-#      each property.lot_size_sf
-#
-# 8. parse_total_rooms(val)
-#    - Parses room counts, handling “3+1” by summing, else int(val)
-#
-# 9. clean_total_rooms(appraisal)
-#    - Cleans overall room_count on subject, comps, and properties
-#
-# 10. clean_bedrooms(appraisal)
-#    - Cleans bedroom counts (num_beds / bed_count / bedrooms) via parse_total_rooms
-#
-# 11. get_bath_score(val=None, full=None, half=None)
-#    - Computes bathroom score = full + 0.5 × half
-#    - Supports “2:1” format or separate full_baths, half_baths args
-#    - Returns (score, full_int, half_int)
-#
-# 12. clean_baths(appraisal)
-#    - For subject and comps: reads num_baths or bath_count, applies get_bath_score
-#    - For properties: reads full_baths & half_baths, applies get_bath_score
-#    - Sets bath_score, num_full_baths, num_half_baths on each record
-#
-# 13. clean_conditions(appraisal)
-#    - Collects unique condition strings from subject, comps, properties into lists
-#      for later analysis or reporting
-#
-# 14. clean_all_data()
-#    - Loads raw data from INPUT_FILE
-#    - Iterates each appraisal and applies all clean_* functions in sequence
-#    - Prints collected unique condition values
-#    - Writes cleaned data to OUTPUT_FILE (indented JSON)
-#
-# 15. Script entry point
-#    if __name__ == "__main__":
-#        clean_all_data()
-#
-# Output: “cleaned_appraisals_dataset.json” containing standardized numeric
-#         fields ready for downstream modeling/comparison.
 
 import json
 import re
@@ -79,6 +15,13 @@ from dateutil import parser
 
 INPUT_FILE = "../data/raw/appraisals_dataset.json"
 OUTPUT_FILE = "../data/cleaned/cleaned_appraisals_dataset.json"
+
+
+
+# 2. parse_age(val, effective_date)
+#    - Normalizes age strings like "new", "built in 1990", "20 years old"
+#    - Returns age in years (int) or None
+#    - If “new” → 0; if numeric looks like a year → current_year – year; else returns number
 
 def parse_age(val, effective_date):
     if not val:
@@ -90,7 +33,7 @@ def parse_age(val, effective_date):
         return 0
 
     # Extract number (1 to 4 digits)
-    match = re.search(r"(\d{1,4})", val)
+    match = re.search(r"(\d{1,4})", val) # looks through the string val for the first run of 1–4 digits anywhere and captures them
     if not match:
         return None
 
@@ -106,6 +49,14 @@ def parse_age(val, effective_date):
         return current_year - num
     else:
         return num
+    
+
+
+# 3. clean_ages(appraisal)
+#    - Applies parse_age to:
+#        • Subject property’s subject_age & effective_age (using its effective_date)
+#        • Each comp’s age (using sale_date)
+#        • Each property’s age (using close_date)
 
 def clean_ages(appraisal):
     subject = appraisal['subject']
@@ -129,26 +80,35 @@ def clean_ages(appraisal):
 
     return appraisal
 
+
+
+# 4. parse_gla(val)
+#    - Extracts numeric GLA (gross living area) value
+#    - Converts “sqm” or “sq m” → square feet (×10.7639)
+#    - Rounds and returns integer sqft or None
+
 def parse_gla(val):
     if not val:
-        return None
-
-    # print(val)
-    # print(type(val))   
+        return None 
 
     val = str(val).lower().replace(',', '').strip()
     tokens = val.split()
 
-    match = re.search(r"(\d+(?:\.\d+)?)", val)
+    match = re.search(r"(\d+(?:\.\d+)?)", val) # find the first numeric sequence, supporting integers or decimals
     if not match:
         return None
 
-    number = float(match.group(1))
+    number = float(match.group(1)) # Pulls out the matched digits (e.g. "1200" or "110.5") and converts to a Python float for possible unit conversion
 
     if "sqm" in tokens or "sq m" in tokens:
-        number *= 10.7639
+        number *= 10.7639 # multiply by 10.7639 to convert to square feet
 
     return int(round(number))
+
+
+
+# 5. clean_glas(appraisal)
+#    - Runs parse_gla on the subject, each comp, and each property
 
 def clean_glas(appraisal): 
 
@@ -167,6 +127,13 @@ def clean_glas(appraisal):
 
     return appraisal
 
+
+
+# 6. parse_lot_size(val)
+#    - Cleans lot size strings (e.g., “0.2 acres”, “600 sqm”, “20×30 / 600 sqft”)
+#    - Strips unit markers, handles acres → sqft (×43 560) and sqm → sqft (×10.7639)
+#    - Rounds and returns float sqft or None
+
 def parse_lot_size(val):
     if not val:
         return None
@@ -179,13 +146,13 @@ def parse_lot_size(val):
 
     # Use the RHS of a slash if present (e.g., dimensions / area)
     if "/" in val:
-        val = val.split("/")[-1].strip()
+        val = val.split("/")[-1].strip() # Some data might come as "20×30 / 600 sqft" (dimensions vs. area)
 
     # Remove trailing junk so regex works
     val = re.sub(r"(sf|sqft|sqm|acres?|\+/-|±|m|ft|')", "", val).strip()
 
     # Extract the first number
-    match = re.search(r"(\d+(?:\.\d+)?)", val)
+    match = re.search(r"(\d+(?:\.\d+)?)", val) # Matches integers or decimals (e.g. 600, 0.2, 123.45)
     if not match:
         return None
 
@@ -195,11 +162,16 @@ def parse_lot_size(val):
     if "sqm" in original_val:
         number *= 10.7639
     elif "acre" in original_val or "ac" in original_val:
-        number *= 43560
-
+        number *= 43560 # convert acres to square feet (×43 560)
     # Otherwise assume sqft
 
     return float(round(number))
+
+
+
+# 7. clean_lot_sizes(appraisal)
+#    - Applies parse_lot_size to subject.lot_size_sf, each comp.lot_size, and
+#      each property.lot_size_sf
 
 def clean_lot_sizes(appraisal):
 
@@ -219,6 +191,11 @@ def clean_lot_sizes(appraisal):
 
     return appraisal
 
+
+
+# 8. parse_total_rooms(val)
+#    - Parses room counts, handling “3+1” by summing, else int(val)
+
 def parse_total_rooms(val):
 
     if not val:
@@ -229,6 +206,11 @@ def parse_total_rooms(val):
         return int(nums[0]) + int(nums[1])
 
     return int(val)
+
+
+
+# 9. clean_total_rooms(appraisal)
+#    - Cleans overall room_count on subject, comps, and properties
 
 def clean_total_rooms(appraisal):
     subject = appraisal['subject']
@@ -246,6 +228,11 @@ def clean_total_rooms(appraisal):
         
     return appraisal
 
+
+
+# 10. clean_bedrooms(appraisal)
+#    - Cleans bedroom counts (num_beds / bed_count / bedrooms) via parse_total_rooms
+
 def clean_bedrooms(appraisal):
     subject = appraisal['subject']
 
@@ -262,6 +249,13 @@ def clean_bedrooms(appraisal):
         
     return appraisal
 
+
+
+# 11. get_bath_score(val=None, full=None, half=None)
+#    - Computes bathroom score = full + 0.5 × half
+#    - Supports “2:1” format or separate full_baths, half_baths args
+#    - Returns (score, full_int, half_int)
+
 def get_bath_score(val=None, full=None, half=None):
     try:
         if val:
@@ -277,6 +271,13 @@ def get_bath_score(val=None, full=None, half=None):
 
     except:
         return None, 0, 0
+
+
+
+# 12. clean_baths(appraisal)
+#    - For subject and comps: reads num_baths or bath_count, applies get_bath_score
+#    - For properties: reads full_baths & half_baths, applies get_bath_score
+#    - Sets bath_score, num_full_baths, num_half_baths on each record
 
 def clean_baths(appraisal):
     subject = appraisal['subject']
@@ -304,9 +305,16 @@ def clean_baths(appraisal):
     return appraisal
 
 
+
 unique_subject_conditions = []
 unique_comp_conditions = []
 unique_property_conditions = []
+
+
+
+# 13. clean_conditions(appraisal)
+#    - Collects unique condition strings from subject, comps, properties into lists
+#      for later analysis or reporting
 
 def clean_conditions(appraisal):
     subject = appraisal['subject']
@@ -320,6 +328,13 @@ def clean_conditions(appraisal):
         if comp_cond not in unique_comp_conditions:
             unique_comp_conditions.append(comp_cond)
     
+
+
+# 14. clean_all_data()
+#    - Loads raw data from INPUT_FILE
+#    - Iterates each appraisal and applies all clean_* functions in sequence
+#    - Prints collected unique condition values
+#    - Writes cleaned data to OUTPUT_FILE (indented JSON)
 
 def clean_all_data():
     with open(INPUT_FILE, "r") as f:
@@ -336,8 +351,6 @@ def clean_all_data():
         clean_baths(appraisal)
         clean_conditions(appraisal)
 
-       
-
         cleaned.append(appraisal)
 
     print(unique_subject_conditions)
@@ -349,5 +362,14 @@ def clean_all_data():
     print(f"Saved cleaned JSON to {OUTPUT_FILE}")
 
 
+
+# 15. Script entry point
+#    if __name__ == "__main__":
+#        clean_all_data()
+
 if __name__ == "__main__":
     clean_all_data()
+
+
+
+# Output: “cleaned_appraisals_dataset.json” containing standardized numeric fields ready for downstream modeling/comparison.
