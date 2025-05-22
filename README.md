@@ -125,7 +125,7 @@ The model uses the following features, all computed as differences between subje
    - Outputs to `outputs/`
    - **Modify this file to change the explanation format and GPT prompts**
 
-## 🔑 Key Concepts Cheat-Sheet
+## 🔑 Key Concepts Learned
 
 ### 1. Text Processing
 
@@ -283,16 +283,7 @@ neg = [(f, v) for f, v in shap_items if v < 0]
 
 - Python 3.8+
 - OpenAI API key (for explanations)
-- Dependencies (see requirements.txt):
-  - pandas >= 1.3.0
-  - xgboost >= 1.5.0
-  - scikit-learn >= 0.24.0
-  - numpy >= 1.19.0
-  - fuzzywuzzy >= 0.18.0
-  - python-Levenshtein >= 0.12.0
-  - shap >= 0.41.0
-  - openai >= 1.0.0
-  - python-dotenv >= 0.19.0
+- Dependencies (see requirements.txt)
 
 ## Author
 
