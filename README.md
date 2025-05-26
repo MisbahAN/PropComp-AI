@@ -1,6 +1,6 @@
-# Property Recommendation System
+# PropComp AI
 
-A machine learning system that identifies and explains the best comparable properties for real estate appraisals. Built during the first sprint of Headstarter SWE Residency.
+A machine learning "Property Recommendation" system that identifies and explains the best comparable properties for real estate appraisals. Built during the first sprint of Headstarter SWE Residency.
 
 ## Project Overview
 
