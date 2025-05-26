@@ -12,6 +12,51 @@ This system processes property appraisal data through several stages:
 5. Generating human-readable explanations for recommendations
 6. Interactive feedback collection and model retraining
 
+## 📊 Model Performance
+
+The system uses an XGBoost ranking model with pairwise ranking objective to identify comparable properties. Here's the performance on held-out test data:
+
+### Evaluation Metrics
+- **Metric**: Top-3 Precision (per appraisal)
+- **Total Top-3 Predictions**: 264
+- **Correctly Identified Comps**: 254
+- **False Positives**: 10
+- **Top-3 Precision**: 96.21%
+
+### False Positive Analysis
+The model incorrectly identified these properties as top-3 comparables:
+- 177 Bramco Lane
+- 242 Coville Circle NE
+- 240 Nelson Street
+- 871 Crestwood Ave
+- 239 Kinniburgh Loop
+- 16 James St
+- 36 Hidden Spring Place NW
+- 6555 Third Line
+- 161 Everoak Circle SW
+
+This high precision indicates that when the model suggests a property as comparable, it is very likely to be a good match for the subject property.
+
+## 🎯 Project Milestones
+
+This project successfully fulfills all three core requirements set by Automax.ai:
+
+### ✅ Statistical Modeling
+- XGBoost ranking model with pairwise learning
+- Engineered statistical features (GLA, lot size, bath score differences)
+- Distance-based features and supervised learning
+
+### ✅ Explainability
+- SHAP values for feature importance
+- GPT-3.5 integration for natural language explanations
+- Human-readable justifications for each recommendation
+
+### ✅ Self-Improving System
+- Interactive Streamlit UI for user feedback
+- Feedback storage and processing pipeline
+- Automatic model retraining with updated data
+- Real-time explanation regeneration
+
 ## 📁 Project Structure
 
 ### Directory Layout
@@ -126,24 +171,24 @@ The model uses the following features, all computed as differences between subje
 
 ### Data Processing Pipeline
 
-1. `data_pipeline.py` (90 lines)
+1. `data_pipeline.py` (89 lines)
    - Coordinates the entire pipeline
    - Conditionally runs geocoding based on cache status
    - Executes all processing steps in sequence
 
-2. `clean_initial_data.py` (375 lines)
+2. `clean_initial_data.py` (364 lines)
    - Standardizes property data
    - Handles missing values
    - Normalizes property features (ages, sizes, rooms)
    - Outputs cleaned data to `data/cleaned/`
 
-3. `geocode_all_addresses.py` (147 lines)
+3. `geocode_all_addresses.py` (146 lines)
    - Geocodes property addresses using Nominatim
    - Uses GPT for address cleaning when needed
    - Caches results to avoid repeated lookups
    - Outputs to `data/geocoded-data/`
 
-4. `features.py` (454 lines)
+4. `features.py` (519 lines)
    - Adds engineered features
    - Implements property type matching
    - Creates time-based flags
@@ -151,26 +196,26 @@ The model uses the following features, all computed as differences between subje
    - Outputs enhanced data to `data/engineered/`
    - **Modify this file to change the features used in the model**
 
-5. `training_data.py` (218 lines)
+5. `training_data.py` (194 lines)
    - Converts data to ML format
    - Creates positive/negative examples
    - Prepares data for model training
    - Outputs to `data/training/`
 
-6. `train_model.py` (121 lines)
+6. `train_model.py` (142 lines)
    - Trains XGBoost ranking model
    - Implements cross-validation
    - Saves model to `models/`
    - **Modify this file to change model parameters (learning rate, depth, etc.)**
 
-7. `top3_explanations.py` (171 lines)
+7. `top3_explanations.py` (267 lines)
    - Generates human-readable explanations
    - Uses SHAP for feature importance
    - Integrates with GPT for natural language explanations
    - Outputs to `outputs/`
    - **Modify this file to change the explanation format and GPT prompts**
 
-8. `frontend/app.py` (213 lines)
+8. `frontend/app.py` (212 lines)
    - Streamlit web interface for property comparisons
    - Displays model predictions and explanations
    - Collects user feedback
