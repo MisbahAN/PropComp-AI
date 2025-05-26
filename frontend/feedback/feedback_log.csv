@@ -1,0 +1,4 @@
+orderID,rank,candidate_address,subject_address,score,is_comp,user_feedback
+4723364,1.0,2738 Isle of Man Rd,1050 John F. Scott Rd Kingston ON K7L4V3,1.4640510082244873,1,1
+4723364,2.0,2480 Hitchcock Rd,1050 John F. Scott Rd Kingston ON K7L4V3,1.3974454402923584,1,1
+4723364,3.0,1996 McFarlane Rd,1050 John F. Scott Rd Kingston ON K7L4V3,0.9523958563804626,1,1

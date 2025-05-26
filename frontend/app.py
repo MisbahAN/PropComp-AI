@@ -27,9 +27,26 @@ selected_order = st.selectbox("Select an Appraisal (orderID)", order_ids)
 appraisal_df = df[df["orderID"] == selected_order].sort_values("rank")
 
 # UI Headers
-st.title("🏠 Property Comparison Feedback")
+st.title("🏠 Property Recommendation System")
 st.subheader(f"Subject Property: {appraisal_df['subject_address'].iloc[0]}")
 st.markdown("---")
+
+# Add custom CSS for centering
+st.markdown("""
+    <style>
+        .stRadio > div {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .stRadio > div > label {
+            margin: 0 1rem;
+        }
+        .stButton > button {
+            width: 250px !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # Placeholder to store user feedback
 feedback_records = []
@@ -57,7 +74,7 @@ valid_prices = []
 
 for _, row in appraisal_df.iterrows():
     # Display candidate details
-    st.markdown(f"### 🏘️ Candidate Property (Rank {int(row['rank'])}):")
+    st.markdown(f"### 📌 Candidate Property (Rank {int(row['rank'])}):")
     st.markdown(f"**Address:** {row['candidate_address']}")
     st.markdown(f"**Model Score:** `{row['score']:.2f}`")
     st.markdown(f"**Explanation:** {row['explanation']}")
@@ -104,7 +121,10 @@ for _, row in appraisal_df.iterrows():
 
     # Collect user feedback
     key = f"feedback_{row['orderID']}_{row['rank']}"
-    feedback = st.radio("Do you agree this is a good comparable?", ("👍 Yes", "👎 No"), key=key)
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        st.markdown("<div style='text-align: center;'>Do you agree this is a good comparable?</div>", unsafe_allow_html=True)
+        feedback = st.radio("", ("👍 Yes", "👎 No"), key=key, horizontal=True)
 
     feedback_records.append({
         "orderID": row["orderID"],
@@ -165,49 +185,66 @@ else:
 
 # 6. Save feedback and trigger pipeline retraining
 
-if st.button("✅ Submit Feedback"):
-    feedback_df = pd.DataFrame(feedback_records)
+col1, col2, col3 = st.columns([1,2,1])
+with col2:
+    if st.button("✅ Submit Feedback", use_container_width=True):
+        feedback_df = pd.DataFrame(feedback_records)
 
-    if os.path.exists(FEEDBACK_FILE):
-        try:
-            existing = pd.read_csv(FEEDBACK_FILE)
+        if os.path.exists(FEEDBACK_FILE):
+            try:
+                existing = pd.read_csv(FEEDBACK_FILE)
 
-            # Drop duplicates by orderID and candidate_address
-            combined = pd.concat([existing, feedback_df])
-            combined = combined.drop_duplicates(
-                subset=["orderID", "candidate_address"], keep="last"
-            )
-            combined.to_csv(FEEDBACK_FILE, index=False)
-        except pd.errors.EmptyDataError:
+                # Drop duplicates by orderID and candidate_address
+                combined = pd.concat([existing, feedback_df])
+                combined = combined.drop_duplicates(
+                    subset=["orderID", "candidate_address"], keep="last"
+                )
+                combined.to_csv(FEEDBACK_FILE, index=False)
+            except pd.errors.EmptyDataError:
+                feedback_df.to_csv(FEEDBACK_FILE, index=False)
+        else:
             feedback_df.to_csv(FEEDBACK_FILE, index=False)
-    else:
-        feedback_df.to_csv(FEEDBACK_FILE, index=False)
 
-    st.success("✅ Feedback saved to feedback_log.csv!")
+        st.success("✅ Feedback saved to feedback_log.csv!")
 
-    # Re-run the pipeline from training_data onwards
-    st.info("🔁 Updating model with new feedback...")
+        # Re-run the pipeline from training_data onwards
+        st.info("🔁 Updating model with new feedback...")
 
-    subprocess.run(["/usr/local/bin/python3.12", "training_data.py"])
-    subprocess.run(["/usr/local/bin/python3.12", "train_model.py"])
-    subprocess.run(["/usr/local/bin/python3.12", "top3_explanations.py"])
+        subprocess.run(["/usr/local/bin/python3.12", "training_data.py"])
+        subprocess.run(["/usr/local/bin/python3.12", "train_model.py"])
+        subprocess.run(["/usr/local/bin/python3.12", "top3_explanations.py"])
 
-    st.success("✅ Model updated with feedback.")
+        st.success("✅ Model updated with feedback.")
 
-    st.rerun()
+        st.rerun()
 
 
 
 # 7. Optional Reset Button – removes feedback and retrains original model
 
-if st.button("🔄  Reset Feedback and Model"):
-    if os.path.exists(FEEDBACK_FILE):
-        os.remove(FEEDBACK_FILE)
-        st.warning("🗑️ Feedback log reset.")
+col1, col2, col3 = st.columns([1,2,1])
+with col2:
+    if st.button("🔄  Reset Feedback and Model", use_container_width=True):
+        if os.path.exists(FEEDBACK_FILE):
+            os.remove(FEEDBACK_FILE)
+            st.warning("🗑️ Feedback log reset.")
 
-    st.info("🔄 Rebuilding model with original data...")
+        st.info("🔄 Rebuilding model with original data...")
 
-    subprocess.run(["/usr/local/bin/python3.12", "data_pipeline.py"])
+        subprocess.run(["/usr/local/bin/python3.12", "data_pipeline.py"])
 
-    st.success("✅ Model and explanations reset.")
-    st.rerun()
+        st.success("✅ Model and explanations reset.")
+        st.rerun()
+
+# Add footer
+st.markdown("---")
+st.markdown(
+    """
+    <div style='text-align: center; padding: 20px;'>
+        <p style='color: #666; font-size: 0.9rem;'>
+            Developed by <a href='https://MisbahAN.com' target='_blank' style='color: #0066cc; text-decoration: none;'>MisbahAN.com</a>
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
