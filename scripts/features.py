@@ -4,29 +4,31 @@
 
 
 # 1. Imports & Constants
-#    - json: load and dump JSON
-#    - dateutil.parser: flexible date parsing
-#    - fuzzywuzzy.process: fuzzy string matching for property types
-#    - INPUT_FILE / OUTPUT_FILE file paths
-#    - CANONICAL_TYPES: standardized property type list
-#    - manual_type_map: mapping of variations to canonical types
+#    - json: load and dump JSON data
+#    - parser: parse flexible date formats (sale_date, effective_date)
+#    - process: fuzzy matching for inconsistent property types
+#    - geodesic: compute distance between lat/lon coordinates
+#    - INPUT_FILE, OUTPUT_FILE, ADDRESS_FILE: file paths
+#    - CANONICAL_TYPES: standardized structure types
+#    - manual_type_map: manual mapping from raw structure types to canonical ones
 
 import json
 from dateutil import parser
 from fuzzywuzzy import process
+from geopy.distance import geodesic
 
 INPUT_FILE = "../data/cleaned/cleaned_appraisals_dataset.json"
 OUTPUT_FILE = "../data/engineered/feature_engineered_appraisals_dataset.json"
+ADDRESS_FILE = "../data/geocoded-data/geocoded_addresses.json"
+
+with open(ADDRESS_FILE, "r") as f:
+            address_data = json.load(f)
 
 CANONICAL_TYPES = [
     "Townhouse", "Detached", "Condominium", "Semi Detached",
     "High Rise Apartment", "Low Rise Apartment", "Duplex", "Triplex", "Fourplex"
 ]
 
-# manual_type_map: maps raw property-type strings to our standard list (or None)
-#  - Exact matches first (e.g., "single family residence" → "Detached")
-#  - Explicit exclusions for non-residential values ("vacant land", "") → None
-# this lets us handle common variations/edge-cases before doing any fuzzy matching
 manual_type_map = {
     "rural resid": "Detached",
     "rural residential": "Detached",
@@ -62,8 +64,7 @@ manual_type_map = {
 
 
 # 2. sold_recently(appraisal)
-#    - Adds binary flag (1/0) if property sold within 90 days of subject's effective date
-#    - Uses dateutil.parser for flexible date parsing
+#    - Adds a flag `sold_recently = 1` to comps/properties sold ≤ 90 days before the subject’s effective date.
 
 def sold_recently(appraisal):
     subject = appraisal['subject']
@@ -79,7 +80,7 @@ def sold_recently(appraisal):
 
     for property in appraisal['properties']:
         close_date = parser.parse(property.get('close_date'))
-        days_ago_sold = (subject_effective_data - close_date).days
+        days_ago_sold = (subject_effective_data-close_date).days
         if days_ago_sold <= 90:
             property['sold_recently'] = 1
         else:
@@ -90,9 +91,8 @@ def sold_recently(appraisal):
 
 
 # 3. map_to_property_type(raw)
-#    - Normalizes property type strings to canonical types
-#    - First tries exact match in manual_type_map
-#    - Falls back to fuzzy matching if no exact match
+#    - Cleans up raw property type strings
+#    - First checks against manual map, then applies fuzzy matching against canonical types
 
 def map_to_property_type(raw):
     if not raw:
@@ -100,48 +100,48 @@ def map_to_property_type(raw):
 
     val = str(raw).lower().strip().replace(",", "").replace("-", " ")
 
-    # I. Manual check first
+    # Manual check first
     if val in manual_type_map:
         return manual_type_map[val]
 
-    # II. Fuzzy fallback:
-    # - Compare `val` against each entry in CANONICAL_TYPES using fuzzywuzzy.process.extractOne
-    # - extractOne returns (best_match, score) where score is 0–100
-    # - If score ≥ 80 (close match), return best_match; otherwise return None
+    # Fuzzy fallback to catch close things
     match, score = process.extractOne(val, CANONICAL_TYPES, scorer=process.fuzz.partial_ratio)
     return match if score >= 80 else None
 
 
 
 # 4. same_property_type(appraisal)
-#    - Adds binary flag (1/0) if comp/property matches subject's type
-#    - Uses map_to_property_type for normalization
+#    - Flags whether comps/properties match the subject’s property type
+#    - Uses map_to_property_type to normalize inputs
 
 def same_property_type(appraisal):
     subject = appraisal['subject']
     subject_raw = subject.get('structure_type')
     subject_type = map_to_property_type(subject_raw)
+    subject['property_type'] = subject_type
 
     if not subject_type:
-        return appraisal  # skip if undefined/none
+        return appraisal  
 
     for comp in appraisal['comps']:
         comp_raw = comp.get('prop_type')
         comp_type = map_to_property_type(comp_raw)
+        comp['property_type'] = comp_type
         comp['same_property_type'] = int(subject_type == comp_type)
 
     for property in appraisal['properties']:
         property_raw = property.get('property_sub_type')
         property_type = map_to_property_type(property_raw)
+        property['property_type'] = property_type
         property['same_property_type'] = int(subject_type == property_type)
-
+        
     return appraisal
 
 
 
 # 5. effective_age_diff(appraisal)
-#    - Computes age difference between subject and comps/properties
-#    - Uses effective_age for subject and age for others
+#    - Computes subject.effective_age minus comp/property age
+#    - Captures renovation/condition difference over time
 
 def effective_age_diff(appraisal):
     subject = appraisal['subject']
@@ -169,7 +169,8 @@ def effective_age_diff(appraisal):
 
 
 # 6. subject_age_diff(appraisal)
-#    - Similar to effective_age_diff but uses subject_age
+#    - Computes subject.subject_age minus comp/property age
+#    - Reflects difference in original construction year
 
 def subject_age_diff(appraisal):
     subject = appraisal['subject']
@@ -197,7 +198,7 @@ def subject_age_diff(appraisal):
 
 
 # 7. lot_size_diff(appraisal)
-#    - Computes lot size difference in square feet
+#    - Computes difference in lot size (sqft) between subject and comps/properties
 
 def lot_size_diff(appraisal):
     subject = appraisal['subject']
@@ -222,7 +223,7 @@ def lot_size_diff(appraisal):
 
 
 # 8. gla_diff(appraisal)
-#    - Computes gross living area difference in square feet
+#    - Computes difference in gross living area (GLA) between subject and comps/properties
 
 def gla_diff(appraisal):
     subject = appraisal['subject']
@@ -250,7 +251,7 @@ def gla_diff(appraisal):
 
 
 # 9. room_diff(appraisal)
-#    - Computes total room count difference
+#    - Computes difference in total room count between subject and comps/properties
 
 def room_diff(appraisal):
     subject = appraisal['subject']
@@ -278,7 +279,7 @@ def room_diff(appraisal):
 
 
 # 10. bedroom_diff(appraisal)
-#    - Computes bedroom count difference
+#     - Computes difference in number of bedrooms between subject and comps/properties
 
 def bedroom_diff(appraisal):
     subject = appraisal['subject']
@@ -288,14 +289,14 @@ def bedroom_diff(appraisal):
         return appraisal
 
     for comp in appraisal['comps']:
-        comp_bedrooms = comp.get('bed_count')
+        comp_bedrooms = comp.get('num_beds')
         if comp_bedrooms:
             comp['bedrooms_diff'] = subject_bedrooms - comp_bedrooms
         else:
             comp['bedrooms_diff'] = None
 
     for property in appraisal['properties']:
-        property_bedrooms = property.get('bedrooms')
+        property_bedrooms = property.get('num_beds')
         if property_bedrooms:
             property['bedrooms_diff'] = subject_bedrooms - property_bedrooms
         else:
@@ -306,7 +307,8 @@ def bedroom_diff(appraisal):
 
 
 # 11. bath_score_diff(appraisal)
-#    - Computes bathroom score difference (full + 0.5*half)
+#     - Computes difference in bathroom score = full + 0.5 * half
+#     - Captures combined bath availability
 
 def bath_score_diff(appraisal):
     subject = appraisal['subject']
@@ -334,7 +336,7 @@ def bath_score_diff(appraisal):
 
 
 # 12. full_bath_diff(appraisal)
-#    - Computes full bathroom count difference
+#     - Computes difference in full bathroom count between subject and comps/properties
 
 def full_bath_diff(appraisal):
     subject = appraisal['subject']
@@ -362,7 +364,7 @@ def full_bath_diff(appraisal):
 
 
 # 13. half_bath_diff(appraisal)
-#    - Computes half bathroom count difference
+#     - Computes difference in half bathroom count between subject and comps/properties
 
 def half_bath_diff(appraisal):
     subject = appraisal['subject']
@@ -389,16 +391,103 @@ def half_bath_diff(appraisal):
 
 
 
-# 14. add_new_features()
-#    - Main function that:
-#      • Loads cleaned data
-#      • Applies all feature engineering functions
-#      • Saves enhanced dataset
+# 14. add_geocoded_addresses(appraisal)
+#     - Adds latitude and longitude to subject, comps, and properties
+#     - Uses cached geocoding dictionary to look up addresses
+
+def add_geocoded_addresses(appraisal):
+    def get_lat_lon(address):
+        data = address_data.get(address)
+        if data and isinstance(data, dict):
+            return data.get('lat'), data.get('lon')
+        return None, None
+
+    subject = appraisal['subject']
+    subject_address = subject.get('address').lower()
+    subject['lat'], subject['lon'] = get_lat_lon(subject_address)
+
+    for comp in appraisal.get('comps', []):
+        comp_address = comp.get('address').lower()
+        comp['lat'], comp['lon'] = get_lat_lon(comp_address)
+
+    for prop in appraisal.get('properties', []):
+        prop_address = prop.get('address').lower()
+        prop['lat'], prop['lon'] = get_lat_lon(prop_address)
+
+    return appraisal
+
+
+
+# 15. get_distance_to_subject(appraisal)
+#     - Computes geodesic distance in km between subject and each comp/property
+#     - Adds `distance_to_subject_km` feature to each
+
+def get_distance_to_subject(appraisal):
+
+    def get_dist(sub_lat, sub_lon, lat, lon):
+        try:
+            dist_km = geodesic(
+                (sub_lat, sub_lon), (lat, lon)
+            ).km
+            return round(dist_km, 3)
+        except Exception as e:
+            print(f"Distance error for {comp_address}: {e}")
+            return None
+
+    subject = appraisal['subject']
+    subject_lat = subject.get('lat')
+    subject_lon = subject.get('lon')
+
+    if subject_lat is None or subject_lon is None:
+        print(subject.get('address'))
+        return appraisal 
+
+    for comp in appraisal['comps']:
+
+        # Skip if already has a valid distance
+        if comp.get('distance_to_subject_km') is not None:
+            continue
+
+        comp_address = comp.get('address')
+        if not comp_address:
+            continue
+
+        cached = address_data.get(comp_address.lower())
+        if cached and isinstance(cached, dict):
+            comp_lat = cached.get('lat')
+            comp_lon = cached.get('lon')
+            if comp_lat is not None and comp_lon is not None:
+
+                # Calculate geodesic distance in kilometers
+                comp['distance_to_subject_km'] = get_dist(subject_lat, subject_lon, comp_lat, comp_lon)
+
+    for property in appraisal['properties']:
+        property_address = property.get('address')
+        if not property_address: 
+            continue
+
+        cached = address_data.get(property_address.lower())
+        if cached and isinstance(cached, dict):
+            property_lat = cached.get('lat')
+            property_lon = cached.get('lon')
+            if property_lat is not None and property_lon is not None:
+
+                # Calculate geodesic distance in kilometers
+                property['distance_to_subject_km'] = get_dist(subject_lat, subject_lon, property_lat, property_lon)
+        
+    return appraisal 
+        
+
+
+# 16. add_new_features()
+#     - Loads cleaned dataset
+#     - Applies all feature engineering functions sequentially
+#     - Saves output to OUTPUT_FILE as formatted JSON
 
 def add_new_features():
     with open(INPUT_FILE, "r") as f:
             data = json.load(f)
-    
+
     feature_engineered = []
     
     for appraisal in data["appraisals"]:
@@ -415,6 +504,9 @@ def add_new_features():
         full_bath_diff(appraisal)
         half_bath_diff(appraisal)
 
+        add_geocoded_addresses(appraisal)
+        get_distance_to_subject(appraisal)
+
         feature_engineered.append(appraisal)
 
     with open(OUTPUT_FILE, "w") as f:
@@ -425,30 +517,4 @@ def add_new_features():
 
 
 if __name__ == "__main__":
-    add_new_features()   
-
-
-
-# Output: "feature_engineered_appraisals_dataset.json" containing original data plus new engineered features for modeling 
-
-
-
-# =============================================================================
-# ENGINEERED FEATURES ADDED IN feature_engineered_appraisals_dataset.json:
-#
-# sold_recently        – 1 if comp/property sold ≤90 days before subject date, else 0
-# same_property_type   – 1 if comp/property type matches subject’s type, else 0
-#
-# effective_age_diff   – subject.effective_age minus comp/property age
-# subject_age_diff     – subject.subject_age minus comp/property age
-#
-# lot_size_diff_sf     – subject.lot_size_sf minus comp/property lot_size_sf (sqft)
-# gla_diff             – subject.gla minus comp/property gla (sqft)
-#
-# room_count_diff      – subject.room_count minus comp/property room_count
-# bedrooms_diff        – subject.num_beds minus comp/property bed_count
-#
-# bath_score_diff      – subject.bath_score minus comp/property bath_score
-# full_baths_diff      – subject.num_full_baths minus comp/property num_full_baths
-# half_baths_diff      – subject.num_half_baths minus comp/property num_half_baths
-# =============================================================================
+    add_new_features() 

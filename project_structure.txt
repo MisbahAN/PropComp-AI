@@ -1,0 +1,38 @@
+.
+├── .DS_Store
+├── .env
+├── .gitignore
+├── data
+│   ├── cleaned
+│   │   └── cleaned_appraisals_dataset.json
+│   ├── engineered
+│   │   └── feature_engineered_appraisals_dataset.json
+│   ├── geocoded-data
+│   │   ├── geocoded_addresses.json
+│   │   └── missing_addresses.txt
+│   ├── raw
+│   │   └── appraisals_dataset.json
+│   ├── README.md
+│   └── training
+│       └── training_data.csv
+├── frontend
+│   ├── app.py
+│   └── feedback
+├── models
+│   └── xgb_rank_model.json
+├── outputs
+│   ├── top3_gpt_explanations.csv
+│   └── top3.csv
+├── project_structure.txt
+├── README.md
+├── requirements.txt
+└── scripts
+    ├── clean_initial_data.py
+    ├── data_pipeline.py
+    ├── features.py
+    ├── geocode_all_addresses.py
+    ├── top3_explanations.py
+    ├── train_model.py
+    └── training_data.py
+
+12 directories, 24 files
