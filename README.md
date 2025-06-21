@@ -12,6 +12,17 @@ This system processes property appraisal data through several stages:
 5. Generating human-readable explanations for recommendations
 6. Interactive feedback collection and model retraining
 
+<div align="center">
+  <iframe
+    width="560" height="315"
+    src="https://www.youtube.com/embed/5T7h3kQ61gU"
+    title="PropComp AI: Property Recommendation System DEMO"
+    frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowfullscreen>
+  </iframe>
+</div>
+
 ## 📊 Model Performance
 
 The system uses an XGBoost ranking model with pairwise ranking objective to identify comparable properties. Here's the performance on held-out test data:
