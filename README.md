@@ -12,6 +12,8 @@ This system processes property appraisal data through several stages:
 5. Generating human-readable explanations for recommendations
 6. Interactive feedback collection and model retraining
 
+## 📺 Watch Demo
+
 <p align="center">
   <a href="https://www.youtube.com/watch?v=5T7h3kQ61gU" target="_blank">
     <img src="https://img.youtube.com/vi/5T7h3kQ61gU/0.jpg" alt="Watch Demo" width="560"/>
